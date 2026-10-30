@@ -26,6 +26,7 @@ export type Entry = Macros & {
   estimate: boolean;
   source: FoodSource;
   timestamp: number; // When it was actually logged.
+  portion?: string | null; // For counted food, such as "1 × medium".
   nutrients?: Nutrients;
 };
 
@@ -74,9 +75,68 @@ export type Setting = {
 
 export type ChatMessage = {
   id: string;
+  day: string; // Each logging day is its own conversation with Claude.
   createdAt: number;
   role: "user" | "assistant";
-  content: unknown;
+  content: unknown; // Exactly what the Claude API sent or received. Never rewritten.
+  backgroundText?: string; // The background block this message carried, if any.
+  usage?: unknown;
+};
+
+export type ProposalItem = Macros & {
+  id: string;
+  food: string;
+  grams: number | null;
+  rawOrCooked: RawOrCooked | null;
+  portion: string | null;
+  source: FoodSource;
+  estimate: boolean;
+  entryId?: string; // Set once the item has been saved as an entry.
+};
+
+export type ProposalStatus = "pending" | "confirmed" | "cancelled" | "replaced";
+
+export type Proposal = {
+  id: string;
+  day: string;
+  createdAt: number;
+  status: ProposalStatus;
+  date: string; // The logging day the food will count toward.
+  meal: Meal | null;
+  items: ProposalItem[];
+};
+
+export type FoodPortion = {
+  label: string;
+  grams: number;
+};
+
+// The numbers behind a reference from search_food, so that confirm cards use
+// these values and not numbers the model typed.
+export type FoodLookup = {
+  ref: string;
+  name: string;
+  source: "saved" | "history" | "usda";
+  per100g: Macros | null;
+  perPortion: Macros | null;
+  rawOrCooked: RawOrCooked | null;
+  estimate: boolean;
+  portions: FoodPortion[];
+  defaultGrams?: number | null; // Set when repeating one exact past entry.
+  createdAt: number;
+};
+
+// One reversible change, shown in the chat with an Undo button.
+export type ChangeRecord = {
+  id: string;
+  day: string;
+  createdAt: number;
+  label: string;
+  table: "entries" | "days" | "settings" | "customFoods";
+  key: string;
+  before: unknown;
+  after: unknown;
+  undone: boolean;
 };
 
 class CmacDatabase extends Dexie {
@@ -87,6 +147,9 @@ class CmacDatabase extends Dexie {
   batches!: Table<Batch, string>;
   settings!: Table<Setting, string>;
   chatMessages!: Table<ChatMessage, string>;
+  proposals!: Table<Proposal, string>;
+  foodLookups!: Table<FoodLookup, string>;
+  changes!: Table<ChangeRecord, string>;
 
   constructor() {
     super("cmac");
@@ -99,6 +162,13 @@ class CmacDatabase extends Dexie {
       batches: "id, name, expiresAt",
       settings: "key",
       chatMessages: "id, createdAt",
+    });
+    // Tables not listed here carry over unchanged.
+    this.version(2).stores({
+      chatMessages: "id, day, createdAt",
+      proposals: "id, day, status, createdAt",
+      foodLookups: "ref",
+      changes: "id, day, createdAt",
     });
   }
 }

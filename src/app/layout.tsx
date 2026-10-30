@@ -32,7 +32,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <PwaSetup />
         <PasscodeGate>
-          <div className="flex h-dvh flex-col">
+          <div className="flex h-[var(--app-height,100dvh)] flex-col">
             <main className="pt-safe min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {children}
             </main>

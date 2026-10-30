@@ -46,6 +46,11 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* The tab bar would only take space from the chat while typing. */
+html[data-keyboard-open] nav {
+  display: none;
+}
+
 /* iOS zooms the page when a focused field's text is under 16px. Keep this
    outside any layer so Tailwind text-size classes can't shrink it by accident. */
 input,

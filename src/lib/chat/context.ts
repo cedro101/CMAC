@@ -63,6 +63,7 @@ export async function buildTurnContext(day: string, now: Date): Promise<string> 
     .equals(day)
     .filter((proposal) => proposal.status === "pending")
     .toArray();
+  const changes = await db.changes.where("day").equals(day).sortBy("createdAt");
 
   return [
     `Current time: ${now.toLocaleString("en-CA", { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}`,
@@ -71,6 +72,10 @@ export async function buildTurnContext(day: string, now: Date): Promise<string> 
     entries.length ? `Today's saved entries:\n${entries.map(formatEntry).join("\n")}` : "Today's saved entries: none",
     `Today's totals: ${formatTotals(entries)}`,
     pending.length ? `Cards awaiting confirmation:\n${pending.map(formatCard).join("\n")}` : "Cards awaiting confirmation: none",
+    // He can also change things by tapping, which Claude wouldn't otherwise see.
+    changes.length
+      ? `Changes made today, oldest first, whether by you or by him tapping in the app:\n${changes.map((change) => `- ${change.label}${change.undone ? " (he then tapped Undo)" : ""}`).join("\n")}`
+      : "Changes made today: none",
   ].join("\n");
 }
 

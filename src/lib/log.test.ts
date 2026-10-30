@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buildBackground, buildTurnContext, wrapAppContext } from "./chat/context";
 import { executeTool } from "./chat/tools";
 import { TOOLS, buildToolDefinitions } from "./chat/toolDefs";
+import { dayKey } from "./dates";
 import { db, type Entry, type Proposal, type ProposalItem } from "./db";
 import { searchFood, type UsdaSearcher } from "./food/search";
 import {
@@ -368,6 +369,22 @@ describe("context", () => {
     expect(context).toContain(`id=${saved.id}`);
     expect(context).toContain(`card_id=${cardId}`);
     expect(context).toContain("Logging day: 2026-10-30");
+  });
+
+  it("tells Claude about changes made by tapping, including Undo", async () => {
+    const potatoes = entry({ food: "Potatoes" });
+    const chicken = entry();
+    await db.entries.bulkAdd([potatoes, chicken]);
+    await editEntry(chicken.id, { grams: 300 });
+    await deleteEntry(potatoes.id);
+    const removed = (await db.changes.toArray()).find((change) => change.label === "Removed Potatoes");
+    const context = await buildTurnContext(dayKey(), new Date());
+    expect(context).toContain("Edited Chicken breast: 200 g → 300 g");
+    expect(context).toMatch(/^- Removed Potatoes$/m);
+    expect(context).not.toContain("Removed Potatoes (he then tapped Undo)");
+
+    await undoChange(removed?.id ?? "");
+    expect(await buildTurnContext(dayKey(), new Date())).toContain("Removed Potatoes (he then tapped Undo)");
   });
 
   it("marks a partial total", async () => {

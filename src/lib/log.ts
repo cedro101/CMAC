@@ -98,8 +98,10 @@ export async function editEntry(id: string, changes: Partial<Entry>): Promise<En
     if (!before) return null;
     const after = applyFoodEdit(before, "grams" in changes ? { ...changes, portion: null } : changes);
     await db.entries.put(after);
+    const gramsChange =
+      before.grams !== after.grams ? `: ${before.grams ?? "?"} g → ${after.grams ?? "?"} g` : "";
     await recordChange({
-      label: `Edited ${after.food}`,
+      label: `Edited ${after.food}${gramsChange}`,
       table: "entries",
       key: id,
       before,

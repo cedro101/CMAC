@@ -2,39 +2,36 @@
 
 import { type FormEvent, useState } from "react";
 import type { Macros, Meal, RawOrCooked } from "@/lib/db";
-import { applyFoodEdit, MACRO_KEYS, type MacroKey } from "@/lib/macros";
+import { applyFoodEdit } from "@/lib/macros";
 
 // Step 3's food list will open this same sheet.
 export type EditableFood = Macros & {
   food: string;
   grams: number | null;
   rawOrCooked: RawOrCooked | null;
-  estimate: boolean;
   source: string;
   meal?: Meal | null;
 };
 
-export type FoodChanges = Partial<Macros> & {
+export type FoodChanges = {
   food?: string;
   grams?: number | null;
   rawOrCooked?: RawOrCooked | null;
-  estimate?: boolean;
   meal?: Meal | null;
 };
 
-const MACRO_LABELS: Record<MacroKey, string> = { kcal: "kcal", protein: "Protein", carbs: "Carbs", fat: "Fat" };
 const MEALS: Meal[] = ["breakfast", "lunch", "dinner", "snack"];
 
-function toField(value: number | null): string {
-  return value === null ? "" : String(value);
-}
-
 // Returns undefined for text that isn't a usable number. Blank means unknown.
-function parseNumber(text: string): number | null | undefined {
+function parseGrams(text: string): number | null | undefined {
   const trimmed = text.trim().replace(",", ".");
   if (trimmed === "") return null;
   const value = Number(trimmed);
-  return Number.isFinite(value) && value >= 0 ? value : undefined;
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function formatMacro(value: number | null, unit = "g"): string {
+  return value === null ? "–" : `${value}${unit}`;
 }
 
 export default function EditFoodSheet({
@@ -51,38 +48,14 @@ export default function EditFoodSheet({
   onClose: () => void;
 }) {
   const [name, setName] = useState(food.food);
-  const [grams, setGrams] = useState(toField(food.grams));
+  const [grams, setGrams] = useState(food.grams === null ? "" : String(food.grams));
   const [rawOrCooked, setRawOrCooked] = useState(food.rawOrCooked);
-  const [estimate, setEstimate] = useState(food.estimate);
   const [meal, setMeal] = useState(food.meal ?? null);
-  const [macros, setMacros] = useState<Record<MacroKey, string>>({
-    kcal: toField(food.kcal),
-    protein: toField(food.protein),
-    carbs: toField(food.carbs),
-    fat: toField(food.fat),
-  });
-  const [typedMacros, setTypedMacros] = useState<MacroKey[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Shows the rescaled macros as the grams change, except any typed by hand.
-  function handleGramsChange(text: string) {
-    setGrams(text);
-    const parsed = parseNumber(text);
-    if (!parsed) return;
-    const rescaled = applyFoodEdit(food, { grams: parsed });
-    setMacros((current) => {
-      const next = { ...current };
-      for (const key of MACRO_KEYS) {
-        if (!typedMacros.includes(key)) next[key] = toField(rescaled[key]);
-      }
-      return next;
-    });
-  }
-
-  function handleMacroChange(key: MacroKey, text: string) {
-    setMacros((current) => ({ ...current, [key]: text }));
-    setTypedMacros((current) => (current.includes(key) ? current : [...current, key]));
-  }
+  const parsedGrams = parseGrams(grams);
+  // Macros can't be typed here. They always come from the food's data, scaled by the grams.
+  const preview = parsedGrams ? applyFoodEdit(food, { grams: parsedGrams }) : food;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -95,24 +68,13 @@ export default function EditFoodSheet({
     }
     if (trimmedName !== food.food) changes.food = trimmedName;
 
-    const parsedGrams = parseNumber(grams);
-    if (parsedGrams === undefined || parsedGrams === 0) {
+    if (parsedGrams === undefined) {
       setError("Enter the grams as a number above 0, or leave it blank.");
       return;
     }
     if (parsedGrams !== food.grams) changes.grams = parsedGrams;
 
-    for (const key of typedMacros) {
-      const parsed = parseNumber(macros[key]);
-      if (parsed === undefined) {
-        setError(`Enter ${MACRO_LABELS[key]} as a number, or leave it blank if unknown.`);
-        return;
-      }
-      if (parsed !== food[key]) changes[key] = parsed;
-    }
-
     if (rawOrCooked !== food.rawOrCooked) changes.rawOrCooked = rawOrCooked;
-    if (estimate !== food.estimate) changes.estimate = estimate;
     if (showMeal && meal !== (food.meal ?? null)) changes.meal = meal;
 
     onSave(changes);
@@ -142,7 +104,7 @@ export default function EditFoodSheet({
               <input
                 inputMode="decimal"
                 value={grams}
-                onChange={(event) => handleGramsChange(event.target.value)}
+                onChange={(event) => setGrams(event.target.value)}
                 className={`${fieldClass} text-foreground`}
               />
             </label>
@@ -160,20 +122,13 @@ export default function EditFoodSheet({
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {MACRO_KEYS.map((key) => (
-              <label key={key} className="flex flex-col gap-1 text-sm text-muted">
-                {MACRO_LABELS[key]}
-                <input
-                  inputMode="decimal"
-                  value={macros[key]}
-                  placeholder="Unknown"
-                  onChange={(event) => handleMacroChange(key, event.target.value)}
-                  className={`${fieldClass} text-foreground`}
-                />
-              </label>
-            ))}
-          </div>
+          <p className="text-sm tabular-nums" data-testid="macro-preview">
+            <span className="font-semibold">{formatMacro(preview.kcal, " kcal")}</span>
+            <span className="text-muted">
+              {" "}
+              · P {formatMacro(preview.protein)} · C {formatMacro(preview.carbs)} · F {formatMacro(preview.fat)}
+            </span>
+          </p>
 
           {showMeal && (
             <label className="flex flex-col gap-1 text-sm text-muted">
@@ -192,16 +147,6 @@ export default function EditFoodSheet({
               </select>
             </label>
           )}
-
-          <label className="flex h-9 items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={estimate}
-              onChange={(event) => setEstimate(event.target.checked)}
-              className="size-5 accent-[var(--accent)]"
-            />
-            These numbers are an estimate
-          </label>
 
           {error && (
             <p role="alert" className="text-sm text-danger">

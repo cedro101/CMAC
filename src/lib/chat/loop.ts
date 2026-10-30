@@ -47,12 +47,14 @@ export async function runToolLoop(deps: LoopDeps): Promise<LoopOutcome> {
     if (message.stop_reason === "pause_turn") continue;
     if (uses.length === 0) return message.stop_reason === "max_tokens" ? "truncated" : "done";
 
+    // Run together, because several USDA searches one by one take far too long.
     // All results go back in one message, which keeps parallel tool calls working.
-    const results = [];
-    for (const use of uses) {
-      deps.onToolStart?.(use.name);
-      results.push(toolResultBlock(use.id, await deps.runTool(use.name, use.input)));
-    }
+    const results = await Promise.all(
+      uses.map(async (use) => {
+        deps.onToolStart?.(use.name);
+        return toolResultBlock(use.id, await deps.runTool(use.name, use.input));
+      }),
+    );
     await deps.append({ role: "user", content: results });
   }
   return "too_many_rounds";

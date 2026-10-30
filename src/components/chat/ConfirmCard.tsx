@@ -72,19 +72,15 @@ function FoodRow({
 
 function Totals({ items }: { items: Macros[] }) {
   const totals = sumMacros(items);
-  const mark = (partial: boolean) => (partial ? "+" : "");
+  // "+" means some items are missing this macro, and "–" means all of them are.
+  const format = ({ value, partial }: { value: number; partial: boolean }, unit: string) =>
+    partial && value === 0 ? "–" : `${value}${partial ? "+" : ""}${unit}`;
   return (
     <p className="border-t border-border pt-2.5 text-sm tabular-nums">
-      <span className="font-semibold">
-        Total {totals.kcal.value}
-        {mark(totals.kcal.partial)} kcal
-      </span>
+      <span className="font-semibold">Total {format(totals.kcal, " kcal")}</span>
       <span className="text-muted">
         {" "}
-        · P {totals.protein.value}
-        {mark(totals.protein.partial)}g · C {totals.carbs.value}
-        {mark(totals.carbs.partial)}g · F {totals.fat.value}
-        {mark(totals.fat.partial)}g
+        · P {format(totals.protein, "g")} · C {format(totals.carbs, "g")} · F {format(totals.fat, "g")}
       </span>
     </p>
   );

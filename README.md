@@ -39,7 +39,7 @@ Next.js (App Router), TypeScript, Tailwind CSS, Dexie (IndexedDB), Recharts, Zod
 
 1. Copy `.env.example` to `.env.local` and fill in the values:
    - `APP_PASSCODE`: protects the API routes
-   - `ANTHROPIC_API_KEY`: from the [Claude Console](https://console.anthropic.com)
+   - `ANTHROPIC_API_KEY`: from the Claude Console
    - `USDA_API_KEY`: free from [FoodData Central](https://fdc.nal.usda.gov/api-key-signup)
 2. Run `npm install`, then `npm run dev`, and open http://localhost:3000.
 

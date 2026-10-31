@@ -17,13 +17,22 @@ const GROUPS: { meal: Meal | null; label: string }[] = [
 ];
 
 // Puts one of yesterday's meals on a confirm card in the chat.
-export default function CopyMealSheet({ today, onClose }: { today: string; onClose: () => void }) {
+export default function CopyMealSheet({
+  today,
+  onClose,
+  onCopied,
+}: {
+  today: string;
+  onClose: () => void;
+  onCopied: () => void;
+}) {
   const yesterday = shiftDate(today, -1);
   const entries = useLiveQuery(() => db.entries.where("date").equals(yesterday).sortBy("timestamp"), [yesterday]);
 
   async function handleCopy(meal: Meal | null, group: Entry[]) {
     await createProposal(today, meal, entriesToCardItems(group));
     onClose();
+    onCopied();
   }
 
   return (

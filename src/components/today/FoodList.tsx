@@ -1,45 +1,33 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import ChangeNotice from "@/components/chat/ChangeNotice";
 import EditFoodSheet, { type FoodChanges } from "@/components/chat/EditFoodSheet";
-import { db, type Entry, type Meal } from "@/lib/db";
+import { db, type ChangeRecord, type Entry, type Meal } from "@/lib/db";
 import { deleteEntry, editEntry } from "@/lib/log";
+import { sumMacros } from "@/lib/macros";
 
-const COLLAPSED_KEY = "cmac.foodListCollapsed";
-
-const GROUPS: { meal: Meal | null; label: string }[] = [
+const MEALS: { meal: Meal; label: string }[] = [
   { meal: "breakfast", label: "Breakfast" },
+  { meal: "snack", label: "Snack" },
   { meal: "lunch", label: "Lunch" },
   { meal: "dinner", label: "Dinner" },
-  { meal: "snack", label: "Snack" },
-  { meal: null, label: "Other" },
 ];
 
-// Only a convenience, so it's fine if the browser won't store this.
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSED_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeCollapsed(collapsed: boolean) {
-  try {
-    localStorage.setItem(COLLAPSED_KEY, String(collapsed));
-  } catch {}
-}
+const UNDO_VISIBLE_MS = 8000;
 
 function EntryRow({ entry, onSelect }: { entry: Entry; onSelect: () => void }) {
   const amount = [entry.grams === null ? null : `${entry.grams} g`, entry.rawOrCooked].filter(Boolean).join(" ");
   return (
-    <button type="button" onClick={onSelect} className="flex w-full items-center justify-between gap-3 py-1.5 text-left">
+    <button type="button" onClick={onSelect} className="flex w-full items-center justify-between gap-3 py-2 text-left">
       <span className="min-w-0">
-        <span className="block truncate text-sm">
+        <span className="block text-sm">
           {entry.food}
           {entry.estimate && (
-            <span className="ml-1.5 rounded-md bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">Estimate</span>
+            <span className="ml-1.5 whitespace-nowrap rounded-md bg-amber-500/20 px-1.5 py-0.5 text-xs text-amber-300">
+              Estimate
+            </span>
           )}
         </span>
         {amount && <span className="block text-xs text-muted">{amount}</span>}
@@ -52,61 +40,99 @@ function EntryRow({ entry, onSelect }: { entry: Entry; onSelect: () => void }) {
   );
 }
 
+function MealSection({
+  label,
+  entries,
+  onSelect,
+}: {
+  label: string;
+  entries: Entry[];
+  onSelect: (entry: Entry) => void;
+}) {
+  const total = sumMacros(entries).kcal;
+  return (
+    <section className="mt-4">
+      <div className="flex items-baseline justify-between border-b border-border pb-1">
+        <h2 className="font-semibold">{label}</h2>
+        {entries.length > 0 && (
+          <span className="text-sm tabular-nums text-muted">
+            {total.value}
+            {total.partial ? "+" : ""} kcal
+          </span>
+        )}
+      </div>
+      {entries.length === 0 ? (
+        <p className="py-2 text-sm text-muted">Nothing yet</p>
+      ) : (
+        <div className="divide-y divide-border">
+          {entries.map((entry) => (
+            <EntryRow key={entry.id} entry={entry} onSelect={() => onSelect(entry)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function FoodList({ date }: { date: string }) {
-  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [editing, setEditing] = useState<Entry | null>(null);
+  const [lastChangeId, setLastChangeId] = useState<string | null>(null);
   const entries = useLiveQuery(() => db.entries.where("date").equals(date).sortBy("timestamp"), [date]);
+  const lastChange: ChangeRecord | undefined = useLiveQuery(
+    async () => (lastChangeId ? db.changes.get(lastChangeId) : undefined),
+    [lastChangeId],
+  );
+
+  // A change's Undo is also in the chat, so this one only shows briefly.
+  useEffect(() => {
+    if (!lastChangeId) return;
+    const timer = setTimeout(() => setLastChangeId(null), UNDO_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [lastChangeId]);
 
   if (!entries) return null;
 
-  function toggle() {
-    setCollapsed(!collapsed);
-    writeCollapsed(!collapsed);
+  async function showUndo() {
+    const change = await db.changes.orderBy("createdAt").last();
+    setLastChangeId(change?.id ?? null);
   }
 
   async function handleSave(changes: FoodChanges) {
-    if (editing) await editEntry(editing.id, changes);
+    if (editing && Object.keys(changes).length > 0) {
+      await editEntry(editing.id, changes);
+      await showUndo();
+    }
     setEditing(null);
   }
 
   async function handleRemove() {
-    if (editing) await deleteEntry(editing.id);
+    if (editing) {
+      await deleteEntry(editing.id);
+      await showUndo();
+    }
     setEditing(null);
   }
 
-  return (
-    <div className="border-t border-border px-4">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={!collapsed}
-        className="flex h-9 w-full items-center justify-between text-sm font-medium"
-      >
-        <span>
-          Food logged <span className="font-normal text-muted">({entries.length})</span>
-        </span>
-        <span aria-hidden="true" className="text-muted">
-          {collapsed ? "▾" : "▴"}
-        </span>
-      </button>
+  const noMeal = entries.filter((entry) => entry.meal === null);
 
-      {!collapsed && (
-        <div className="max-h-[28dvh] overflow-y-auto overscroll-contain pb-2">
-          {entries.length === 0 && <p className="pb-1 text-sm text-muted">Nothing logged.</p>}
-          {GROUPS.map(({ meal, label }) => {
-            const group = entries.filter((entry) => entry.meal === meal);
-            if (group.length === 0) return null;
-            return (
-              <div key={label}>
-                <h3 className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted">{label}</h3>
-                <div className="divide-y divide-border">
-                  {group.map((entry) => (
-                    <EntryRow key={entry.id} entry={entry} onSelect={() => setEditing(entry)} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+  return (
+    <div className="px-4">
+      {MEALS.map(({ meal, label }) => (
+        <MealSection
+          key={meal}
+          label={label}
+          entries={entries.filter((entry) => entry.meal === meal)}
+          onSelect={setEditing}
+        />
+      ))}
+      {noMeal.length > 0 && <MealSection label="Other" entries={noMeal} onSelect={setEditing} />}
+
+      {lastChange && (
+        <div
+          className="fixed inset-x-4 z-[6] bg-background"
+          style={{ bottom: "calc(env(safe-area-inset-bottom) + 8rem)" }}
+        >
+          <ChangeNotice change={lastChange} />
         </div>
       )}
 

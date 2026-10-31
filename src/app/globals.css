@@ -48,10 +48,14 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* The tab bar would only take space from the chat while typing. */
-html[data-keyboard-open] nav,
-html[data-keyboard-open] .hide-with-keyboard {
+/* While typing, the chat takes all of the space above the keyboard. */
+html[data-keyboard-open] nav {
   display: none;
+}
+
+html[data-keyboard-open] .chat-panel {
+  height: 100%;
+  border-radius: 0;
 }
 
 /* iOS zooms the page when a focused field's text is under 16px. Keep this

@@ -23,7 +23,7 @@ function mealToItems(meal: SavedMeal): ProposalItem[] {
   }));
 }
 
-export default function QuickActions({ today }: { today: string }) {
+export default function QuickActions({ today, onCardCreated }: { today: string; onCardCreated: () => void }) {
   const [adding, setAdding] = useState<FrequentFood | null>(null);
   const [copying, setCopying] = useState(false);
 
@@ -57,7 +57,10 @@ export default function QuickActions({ today }: { today: string }) {
           <button
             key={meal.id}
             type="button"
-            onClick={() => createProposal(today, null, mealToItems(meal))}
+            onClick={async () => {
+              await createProposal(today, null, mealToItems(meal));
+              onCardCreated();
+            }}
             className={CHIP_CLASS}
           >
             {meal.name}
@@ -71,7 +74,7 @@ export default function QuickActions({ today }: { today: string }) {
       </div>
 
       {adding && <QuickAddSheet key={adding.ref} food={adding} today={today} onClose={() => setAdding(null)} />}
-      {copying && <CopyMealSheet today={today} onClose={() => setCopying(false)} />}
+      {copying && <CopyMealSheet today={today} onClose={() => setCopying(false)} onCopied={onCardCreated} />}
     </>
   );
 }

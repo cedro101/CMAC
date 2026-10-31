@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from "react";
 import type { Macros, Meal, RawOrCooked } from "@/lib/db";
 import { applyFoodEdit } from "@/lib/macros";
+import Sheet from "../Sheet";
 
 // Step 3's food list will open this same sheet.
 export type EditableFood = Macros & {
@@ -84,14 +85,8 @@ export default function EditFoodSheet({
     "h-11 w-full rounded-xl border border-border bg-background px-3 outline-none focus:border-accent";
 
   return (
-    <div className="fixed inset-0 z-10 flex items-end bg-black/60" onClick={onClose}>
-      <form
-        role="dialog"
-        aria-label={`Edit ${food.food}`}
-        onSubmit={handleSubmit}
-        onClick={(event) => event.stopPropagation()}
-        className="pb-safe max-h-[90dvh] w-full overflow-y-auto rounded-t-2xl border-t border-border bg-surface"
-      >
+    <Sheet onClose={onClose}>
+      <form role="dialog" aria-label={`Edit ${food.food}`} onSubmit={handleSubmit}>
         <div className="flex flex-col gap-3 p-4">
           <label className="flex flex-col gap-1 text-sm text-muted">
             Food
@@ -167,6 +162,6 @@ export default function EditFoodSheet({
           </button>
         </div>
       </form>
-    </div>
+    </Sheet>
   );
 }

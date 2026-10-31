@@ -197,7 +197,9 @@ function ConfirmedCard({ proposal }: { proposal: Proposal }) {
         <p className="py-2 text-sm text-muted">Everything on this card was removed.</p>
       )}
       {saved.length > 1 && <Totals items={saved} />}
-      <p className="mt-1 text-xs text-accent">Saved{proposal.meal ? ` · ${proposal.meal}` : ""}</p>
+      {saved.length > 0 && (
+        <p className="mt-1 text-xs text-accent">Saved{proposal.meal ? ` · ${proposal.meal}` : ""}</p>
+      )}
       {editing && (
         <EditFoodSheet
           food={editing}

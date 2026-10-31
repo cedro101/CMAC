@@ -35,6 +35,8 @@ const OUTCOME_ERRORS: Record<Exclude<LoopOutcome, "done">, string> = {
   too_many_rounds: "That took too many steps, so it was stopped. Try again or rephrase it.",
 };
 
+const PINNED_DISTANCE_PX = 120;
+
 type TimelineItem =
   | { kind: "message"; id: string; createdAt: number; role: ChatMessage["role"]; text: string }
   | { kind: "card"; id: string; createdAt: number; proposal: Proposal }
@@ -54,31 +56,32 @@ function displayText(message: ChatMessage): string {
   return message.role === "user" ? (texts.at(-1) ?? "") : texts.join("\n\n").trim();
 }
 
-export default function ChatScreen() {
-  const [day, setDay] = useState(() => dayKey());
+export default function ChatScreen({
+  day,
+  readOnly = false,
+  onBeforeSend,
+}: {
+  day: string;
+  readOnly?: boolean;
+  onBeforeSend?: () => void;
+}) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const pinnedToBottom = useRef(true);
 
   const messages = useLiveQuery(() => db.chatMessages.where("day").equals(day).sortBy("createdAt"), [day]);
   const proposals = useLiveQuery(() => db.proposals.where("day").equals(day).toArray(), [day]);
   const changes = useLiveQuery(() => db.changes.where("day").equals(day).toArray(), [day]);
 
-  // Reopening after 4 am starts the new day's conversation.
   useEffect(() => {
-    const refreshDay = () => {
-      if (document.visibilityState === "visible") setDay(dayKey());
-    };
-    document.addEventListener("visibilitychange", refreshDay);
-    return () => document.removeEventListener("visibilitychange", refreshDay);
-  }, []);
-
-  useEffect(() => {
+    if (readOnly) return;
     repairConversation(day).catch((caught) => console.error("Couldn't repair the conversation", caught));
-  }, [day]);
+  }, [day, readOnly]);
 
   const timeline = useMemo(() => {
     const items: TimelineItem[] = [
@@ -98,10 +101,26 @@ export default function ChatScreen() {
     return items.sort((a, b) => a.createdAt - b.createdAt);
   }, [messages, proposals, changes]);
 
-  const lastItemKey = `${timeline.at(-1)?.id}|${timeline.length}`;
+  // Keeps the newest message in view as cards finish drawing, replies stream in
+  // and the food list opens or closes, unless you've scrolled up to read.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [lastItemKey, streamingText, status]);
+    const scroller = scrollerRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content) return;
+    const observer = new ResizeObserver(() => {
+      if (pinnedToBottom.current) scroller.scrollTop = scroller.scrollHeight;
+    });
+    observer.observe(scroller);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
+  function handleScroll() {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+    pinnedToBottom.current = distance < PINNED_DISTANCE_PX;
+  }
 
   const handlers: ChatHandlers = {
     onText: (text) => {
@@ -137,24 +156,30 @@ export default function ChatScreen() {
     const text = draft.trim();
     if (!text || busy) return;
     const currentDay = dayKey();
-    setDay(currentDay);
+    onBeforeSend?.();
+    pinnedToBottom.current = true;
     setDraft("");
     void run(() => sendUserMessage(currentDay, text, handlers));
   }
 
-  const canRetry = !busy && messages !== undefined && isAwaitingReply(messages);
+  const canRetry = !readOnly && !busy && messages !== undefined && isAwaitingReply(messages);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
-        {timeline.length === 0 && !busy && (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollerRef}
+        onScroll={handleScroll}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+      >
+        {timeline.length === 0 && !busy && !readOnly && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted">
             <p className="font-medium text-foreground">What did you eat?</p>
             <p className="text-sm">Try &quot;350g chicken raw, 200g potatoes&quot; or &quot;78.8 this morning&quot;.</p>
           </div>
         )}
+        {timeline.length === 0 && readOnly && <p className="text-center text-sm text-muted">No chat on this day.</p>}
 
-        <div className="flex flex-col gap-3">
+        <div ref={contentRef} className="flex flex-col gap-3">
           {timeline.map((item) => {
             if (item.kind === "card") return <ConfirmCard key={item.id} proposal={item.proposal} />;
             if (item.kind === "change") return <ChangeNotice key={item.id} change={item.change} />;
@@ -195,27 +220,28 @@ export default function ChatScreen() {
               </button>
             </div>
           )}
-          <div ref={endRef} />
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex shrink-0 items-end gap-2 border-t border-border p-2">
-        <textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          rows={1}
-          placeholder="Message CMAC"
-          aria-label="Message CMAC"
-          className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2.5 outline-none [field-sizing:content] focus:border-accent"
-        />
-        <button
-          type="submit"
-          disabled={busy || !draft.trim()}
-          className="h-11 shrink-0 rounded-xl bg-accent px-4 font-semibold text-black disabled:opacity-50"
-        >
-          Send
-        </button>
-      </form>
+      {!readOnly && (
+        <form onSubmit={handleSubmit} className="flex shrink-0 items-end gap-2 border-t border-border p-2">
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            rows={1}
+            placeholder="Message CMAC"
+            aria-label="Message CMAC"
+            className="max-h-32 min-h-11 flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2.5 outline-none [field-sizing:content] focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={busy || !draft.trim()}
+            className="h-11 shrink-0 rounded-xl bg-accent px-4 font-semibold text-black disabled:opacity-50"
+          >
+            Send
+          </button>
+        </form>
+      )}
     </div>
   );
 }

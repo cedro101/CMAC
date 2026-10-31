@@ -1,5 +1,5 @@
-import ChatScreen from "@/components/chat/ChatScreen";
+import TodayScreen from "@/components/today/TodayScreen";
 
 export default function TodayPage() {
-  return <ChatScreen />;
+  return <TodayScreen />;
 }

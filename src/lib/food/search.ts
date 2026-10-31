@@ -29,12 +29,16 @@ export function hasMacros(macros: Macros): boolean {
 
 export function historyLookup(entry: Entry): FoodLookup {
   const weighed = entry.grams !== null && entry.grams > 0;
+  // A past restaurant meal can be repeated as a whole, even if it had a weight.
+  // Food you weigh yourself still needs today's weight.
+  const reusablePortion = !weighed || entry.estimate;
   return {
     ref: `history:${tokenize(entry.food).join("-")}|${entry.rawOrCooked ?? ""}`,
     name: entry.food,
     source: "history",
     per100g: weighed ? multiplyMacros(entry, 100 / (entry.grams as number)) : null,
-    perPortion: weighed ? null : pickMacros(entry),
+    perPortion: reusablePortion ? pickMacros(entry) : null,
+    defaultGrams: reusablePortion ? entry.grams : null,
     rawOrCooked: entry.rawOrCooked,
     estimate: entry.estimate,
     portions: [],

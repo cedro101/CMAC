@@ -105,6 +105,39 @@ describe("lookup items", () => {
   });
 });
 
+describe("past restaurant meals with a weight", () => {
+  const grillHouse = lookup({
+    ref: "history:grillHouse",
+    name: "Mandi chicken (Grill House), meat only",
+    source: "history",
+    per100g: { kcal: 165, protein: 25, carbs: null, fat: null },
+    perPortion: { kcal: 660, protein: 100, carbs: null, fat: null },
+    defaultGrams: 400,
+    rawOrCooked: null,
+    estimate: true,
+  });
+
+  it("repeats the whole meal without asking for grams or raw or cooked", () => {
+    const item = expectItem(resolveItem({ food: "Mandi chicken (Grill House)", kind: "lookup", ref: grillHouse.ref }, grillHouse));
+    expect(item).toMatchObject({ grams: 400, kcal: 660, protein: 100, source: "history", estimate: true });
+  });
+
+  it("still scales when given a weight", () => {
+    const item = expectItem(resolveItem({ food: "Mandi chicken (Grill House)", kind: "lookup", ref: grillHouse.ref, grams: 200 }, grillHouse));
+    expect(item).toMatchObject({ grams: 200, kcal: 330, protein: 50 });
+  });
+
+  it("handles half a portion", () => {
+    const item = expectItem(resolveItem({ food: "Mandi chicken (Grill House)", kind: "lookup", ref: grillHouse.ref, count: 0.5 }, grillHouse));
+    expect(item).toMatchObject({ grams: 200, kcal: 330 });
+  });
+
+  it("doesn't ask raw or cooked for a weighed estimate", () => {
+    const numbers = { kcal: 500, protein: 30, carbs: null, fat: null };
+    expect(resolveItem({ food: "Chicken plate", kind: "estimate", numbers, grams: 300 }, null).ok).toBe(true);
+  });
+});
+
 describe("counted produce", () => {
   it("uses a USDA medium portion with no weight", () => {
     const item = expectItem(resolveItem({ food: "Apple", kind: "lookup", ref: "usda:1", count: 1 }, apple));

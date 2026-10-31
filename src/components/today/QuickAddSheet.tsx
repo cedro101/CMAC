@@ -25,8 +25,8 @@ export default function QuickAddSheet({
   today: string;
   onClose: () => void;
 }) {
-  // Restaurant meals have no weight, so they're counted in portions instead.
-  const weighed = food.lookup.per100g !== null;
+  // Restaurant meals are repeated whole, so they're counted in portions instead.
+  const weighed = food.lookup.perPortion === null;
   const [amount, setAmount] = useState(weighed ? String(food.lastGrams ?? "") : "1");
   const [rawOrCooked, setRawOrCooked] = useState<RawOrCooked | null>(food.lookup.rawOrCooked);
   const [meal, setMeal] = useState<Meal | null>(food.lastMeal);

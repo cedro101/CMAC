@@ -225,6 +225,18 @@ describe("search_food", () => {
     expect(results[0].per_portion?.kcal).toBe(700);
   });
 
+  it("offers a weighed restaurant meal as a whole portion, but not food you weigh", async () => {
+    await db.entries.bulkAdd([
+      entry({ food: "Grill House chicken", grams: 400, rawOrCooked: null, kcal: 660, protein: 100, estimate: true }),
+      entry({ food: "Plain rice", grams: 200, rawOrCooked: "cooked", kcal: 260, protein: 5 }),
+    ]);
+    const grillHouse = await searchFood("grillHouse", noUsda);
+    expect(grillHouse.results[0].per_portion?.kcal).toBe(660);
+    const rice = await searchFood("plain rice", noUsda);
+    expect(rice.results[0].per_portion).toBeNull();
+    expect(rice.results[0].per_100g?.kcal).toBe(130);
+  });
+
   it("still works when USDA is down", async () => {
     await db.entries.add(entry());
     const result = await searchFood("chicken", async () => {

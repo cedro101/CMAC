@@ -19,7 +19,7 @@ Counted produce: for food he counts, such as an apple, Lebanese cucumber, tomato
 
 Numbers he gives: if he states a number, such as "package says 210 kcal", use kind user_number with his numbers.
 
-Eating out and home cooking: for dishes no source covers, such as home-cooked dishes,shawarma saj or restaurant plates, first search his past log, because he eats the same meals repeatedly and his past numbers should be reused. Otherwise use kind estimate with your best numbers. Protein is required, and carbs and fat are welcome. Don't ask for grams on restaurant food he describes by dish and portion, but ask a short question if the dish itself is unclear.
+Eating out and home cooking: for dishes no source covers, such as home-cooked dishes,shawarma saj or restaurant plates, first search his past log, because he eats the same meals repeatedly and his past numbers should be reused. A past result with per_portion can be repeated whole: pass its ref with no grams, or count 0.5 if he had half of what the result was for. Otherwise use kind estimate with your best numbers, and never kind lookup with a weight you assumed, because only a weight he stated may be presented as USDA data. Protein is required, and carbs and fat are welcome. Don't ask for grams on restaurant food he describes by dish and portion, but ask a short question if the dish itself is unclear.
 
 Otherwise, if a weight is missing for food he normally weighs, or something is ambiguous, ask a short question rather than guessing.
 

@@ -30,8 +30,9 @@ function buildItem(
   const rawOrCooked =
     input.raw_or_cooked ?? fields.rawOrCooked ?? inferRawOrCooked(input.food);
 
-  // An unweighed restaurant dish has no weight for raw or cooked to apply to.
-  if (fields.grams !== null && rawOrCooked === null && needsRawOrCooked(input.food)) {
+  // Raw or cooked only matters for food you weigh yourself. An estimated
+  // restaurant dish is already cooked, even when it has a weight.
+  if (fields.grams !== null && rawOrCooked === null && !fields.estimate && needsRawOrCooked(input.food)) {
     return {
       ok: false,
       error: `"${input.food}" needs raw_or_cooked. Ask the user whether the weight is raw or cooked.`,

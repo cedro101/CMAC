@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shiftDate } from "./dates";
 import type { Day, Entry } from "./db";
 import { estimateFromBody, estimateFromHistory } from "./maintenance";
+import type { Profile } from "./profile";
 
 const TODAY = "2026-10-30";
 
@@ -108,18 +109,29 @@ describe("estimateFromHistory", () => {
 });
 
 describe("estimateFromBody", () => {
+  const days = [{ date: "2026-10-29", weightKg: 80, incomplete: false }];
+  const profile: Profile = { age: 30, sex: "male", heightCm: 180, activity: "very", about: "" };
+
   it("uses the formula with the current trend weight", () => {
-    const days = [{ date: "2026-10-29", weightKg: 93, incomplete: false }];
-    expect(estimateFromBody(days)).toEqual({
+    expect(estimateFromBody(days, profile)).toEqual({
       available: true,
-      weightKgUsed: 93,
-      restingKcal: 2009,
-      lowKcal: 3100,
-      highKcal: 3500,
+      weightKgUsed: 80,
+      restingKcal: 1780,
+      lowKcal: 2750,
+      highKcal: 3100,
     });
   });
 
+  it("adjusts for sex and activity", () => {
+    expect(estimateFromBody(days, { ...profile, sex: "female" })).toMatchObject({ restingKcal: 1614 });
+    expect(estimateFromBody(days, { ...profile, activity: "light" })).toMatchObject({ lowKcal: 2300, highKcal: 2600 });
+  });
+
+  it("needs About you filled in", () => {
+    expect(estimateFromBody(days, null).available).toBe(false);
+  });
+
   it("needs at least one weigh-in", () => {
-    expect(estimateFromBody([]).available).toBe(false);
+    expect(estimateFromBody([], profile).available).toBe(false);
   });
 });

@@ -48,7 +48,7 @@ export function resolveLabelFood(
   }
 
   if (perServing) {
-    return { ok: false, error: "The label's serving size in grams is needed. Ask him for it." };
+    return { ok: false, error: "The label's serving size in grams is needed. Ask the user for it." };
   }
-  return { ok: false, error: "No nutrition values could be read. Ask him for a clearer photo of the label." };
+  return { ok: false, error: "No nutrition values could be read. Ask the user for a clearer photo of the label." };
 }

@@ -3,6 +3,7 @@ import { db, type Entry, type Macros, type Proposal } from "../db";
 import { isBatchActive } from "../food/batch";
 import { GOALS_KEY } from "../log";
 import { MACRO_KEYS, sumMacros } from "../macros";
+import { ACTIVITY_LEVELS, getProfile } from "../profile";
 
 const BACKGROUND_DAYS = 7;
 
@@ -72,9 +73,9 @@ export async function buildTurnContext(day: string, now: Date): Promise<string> 
     ...(labelCards.length
       ? [`Label cards awaiting confirmation:\n${labelCards.map((card) => `- card_id=${card.id} | ${card.name} | per 100 g: ${formatMacros(card.per100g)}`).join("\n")}`]
       : []),
-    // He can also change things by tapping, which Claude wouldn't otherwise see.
+    // The user can also change things by tapping, which Claude wouldn't otherwise see.
     changes.length
-      ? `Changes made today, oldest first, whether by you or by him tapping in the app:\n${changes.map((change) => `- ${change.label}${change.undone ? " (he then tapped Undo)" : ""}`).join("\n")}`
+      ? `Changes made today, oldest first, whether by you or by the user tapping in the app:\n${changes.map((change) => `- ${change.label}${change.undone ? " (they then tapped Undo)" : ""}`).join("\n")}`
       : "Changes made today: none",
   ].join("\n");
 }
@@ -89,6 +90,7 @@ export async function buildBackground(day: string): Promise<string> {
   const meals = await db.meals.orderBy("name").toArray();
   const now = Date.now();
   const batches = (await db.batches.toArray()).filter((batch) => isBatchActive(batch, now));
+  const profile = await getProfile();
 
   const history: string[] = [];
   for (let offset = BACKGROUND_DAYS; offset >= 1; offset--) {
@@ -108,6 +110,9 @@ export async function buildBackground(day: string): Promise<string> {
   }
 
   return [
+    profile
+      ? `About the user: ${profile.age} years old, ${profile.sex}, ${profile.heightCm} cm. Activity: ${ACTIVITY_LEVELS[profile.activity].label}.${profile.about ? `\nIn their words: ${profile.about}` : ""}`
+      : "About the user: not filled in",
     `Daily goals: ${goals ? formatMacros(goals) : "not set"}`,
     `Last ${BACKGROUND_DAYS} days:\n${history.join("\n")}`,
     foods.length

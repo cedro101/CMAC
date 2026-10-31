@@ -1,6 +1,8 @@
 import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it } from "vitest";
+import { buildBackground } from "../chat/context";
 import { resolveItem } from "../chat/proposal";
+import { saveProfile } from "../profile";
 import { resolveLabelFood } from "../chat/labelFood";
 import { executeTool } from "../chat/tools";
 import { db, type FoodLookup } from "../db";
@@ -234,11 +236,20 @@ describe("saved meals", () => {
 
 describe("estimate_maintenance", () => {
   it("returns both estimates and changes nothing", async () => {
-    await db.days.add({ date: "2026-10-29", weightKg: 93, incomplete: false });
+    await db.days.add({ date: "2026-10-29", weightKg: 80, incomplete: false });
+    await saveProfile({ age: 30, sex: "male", heightCm: 180, activity: "very", about: "" });
     const result = await executeTool("estimate_maintenance", {}, noUsda, DAY);
     const parsed = JSON.parse(result.content);
-    expect(parsed.from_body).toMatchObject({ available: true, lowKcal: 3100, highKcal: 3500 });
+    expect(parsed.from_body).toMatchObject({ available: true, lowKcal: 2750, highKcal: 3100 });
     expect(parsed.from_history).toMatchObject({ available: false });
-    expect(await db.settings.count()).toBe(0);
+    expect(await db.settings.count()).toBe(1);
+  });
+
+  it("tells the chat about the user only once they've filled it in", async () => {
+    expect(await buildBackground(DAY)).toContain("About the user: not filled in");
+    await saveProfile({ age: 30, sex: "female", heightCm: 170, activity: "light", about: "Vegetarian" });
+    const background = await buildBackground(DAY);
+    expect(background).toContain("30 years old, female, 170 cm");
+    expect(background).toContain("In their words: Vegetarian");
   });
 });

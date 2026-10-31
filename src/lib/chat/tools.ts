@@ -14,7 +14,8 @@ import {
   setGoals,
 } from "../log";
 import { sumMacros } from "../macros";
-import { estimateFromBody, estimateFromHistory, USER_PROFILE } from "../maintenance";
+import { estimateFromBody, estimateFromHistory } from "../maintenance";
+import { getProfile } from "../profile";
 import { resolveLabelFood } from "./labelFood";
 import { resolveItem, type ProposedItemInput } from "./proposal";
 import { TOOLS, type ToolName } from "./toolDefs";
@@ -174,7 +175,7 @@ async function proposeLabelFood(input: ToolInput<"propose_label_food">, day: str
     await db.foodCards.add({ id, day, createdAt: Date.now(), status: "pending", ...resolved.food });
   });
   return {
-    content: JSON.stringify({ card_id: id, status: "shown to him, not saved until he taps Save", ...resolved.food }),
+    content: JSON.stringify({ card_id: id, status: "shown to the user, not saved until they tap Save", ...resolved.food }),
     isError: false,
   };
 }
@@ -206,7 +207,7 @@ async function showSavedMeal({ name, meal, date }: ToolInput<"use_saved_meal">, 
   };
   await db.proposals.add(card);
   return {
-    content: JSON.stringify({ card_id: card.id, status: "shown to him, not saved until he taps Confirm", totals: sumMacros(card.items) }),
+    content: JSON.stringify({ card_id: card.id, status: "shown to the user, not saved until they tap Confirm", totals: sumMacros(card.items) }),
     isError: false,
   };
 }
@@ -256,8 +257,7 @@ async function estimateMaintenance(day: string): Promise<ToolResult> {
   return {
     content: JSON.stringify({
       from_history: estimateFromHistory(entries, days, day),
-      from_body: estimateFromBody(days),
-      profile: USER_PROFILE,
+      from_body: estimateFromBody(days, await getProfile()),
     }),
     isError: false,
   };

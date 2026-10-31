@@ -115,7 +115,7 @@ describe("importHistory", () => {
 
   it("makes imported foods searchable, saved foods first", async () => {
     await importHistory(parsed());
-    const saved = await searchFood("acme bar", async () => ({ available: true, foods: [] }));
+    const saved = await searchFood("Acme bar", async () => ({ available: true, foods: [] }));
     expect(saved.results[0]).toMatchObject({ source: "saved", name: "Acme protein bar" });
 
     const history = await searchFood("chicken breast", async () => ({ available: true, foods: [] }));

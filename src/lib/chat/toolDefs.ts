@@ -106,7 +106,7 @@ export const TOOLS = {
   },
   propose_label_food: {
     description:
-      "Show him a card for a nutrition label read from a photo. Nothing is saved until he confirms. Give the values exactly as printed: per serving with its weight in grams, per 100 g, or both. The app calculates the other column.",
+      "Show the user a card for a nutrition label read from a photo. Nothing is saved until they confirm. Give the values exactly as printed: per serving with its weight in grams, per 100 g, or both. The app calculates the other column.",
     schema: z.object({
       name: z.string().min(1),
       serving_g: z.number().positive().nullable().optional(),
@@ -117,7 +117,7 @@ export const TOOLS = {
   },
   save_meal: {
     description:
-      "Save a reusable meal under a name, replacing any meal with that name. Items work as in propose_log. To save what he just ate, use the entry refs from get_day.",
+      "Save a reusable meal under a name, replacing any meal with that name. Items work as in propose_log. To save what they just ate, use the entry refs from get_day.",
     schema: z.object({ name: z.string().min(1), items: z.array(FoodItem).min(1) }),
   },
   use_saved_meal: {
@@ -130,9 +130,9 @@ export const TOOLS = {
   },
   create_batch: {
     description:
-      "Record a batch he cooked, from its raw and cooked weights and a ref for the raw food from search_food. The app works out the macros per cooked gram. It lasts 7 days.",
+      "Record a batch the user cooked, from its raw and cooked weights and a ref for the raw food from search_food. The app works out the macros per cooked gram. It lasts 7 days.",
     schema: z.object({
-      name: z.string().min(1).describe("Short name he'd use, such as 'Chicken batch'"),
+      name: z.string().min(1).describe("Short name they'd use, such as 'Chicken batch'"),
       raw_g: z.number().positive(),
       cooked_g: z.number().positive(),
       ref: z.string().describe("A raw food's ref from search_food"),
@@ -145,7 +145,7 @@ export const TOOLS = {
   },
   estimate_maintenance: {
     description:
-      "Estimate his maintenance calories two ways: from his logged intake and trend weight over the last 4 weeks, and from his body stats and activity. Changes nothing.",
+      "Estimate the user's maintenance calories two ways: from their logged intake and trend weight over the last 4 weeks, and from their body stats and activity. Changes nothing.",
     schema: z.object({}),
   },
 } as const;

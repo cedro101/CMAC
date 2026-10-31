@@ -1,14 +1,7 @@
 import { shiftDate } from "./dates";
 import type { Day, Entry } from "./db";
+import { ACTIVITY_LEVELS, type Profile } from "./profile";
 import { computeTrend, summarizeDays } from "./progress";
-
-export const USER_PROFILE = {
-  age: 30,
-  sex: "male",
-  heightCm: 180,
-  build: "muscular",
-  activity: "moderate",
-} as const;
 
 const KCAL_PER_KG = 7700;
 const WINDOW_DAYS = 28;
@@ -17,11 +10,6 @@ const MIN_TREND_SPAN_DAYS = 10;
 
 // How much restaurant estimates could be off by, for the skew figure.
 const ESTIMATE_ERROR_SHARE = 0.3;
-
-// This activity level sits around these standard multipliers. Formulas tend to
-// run low for muscular people, so the top of the range is the likelier end.
-const ACTIVITY_LOW = 1.55;
-const ACTIVITY_HIGH = 1.75;
 
 function roundTo50(value: number): number {
   return Math.round(value / 50) * 50;
@@ -106,17 +94,21 @@ export type BodyEstimate =
 
 // The Mifflin-St Jeor formula, using the current trend weight so it stays up to
 // date as weight changes.
-export function estimateFromBody(days: Day[]): BodyEstimate {
+export function estimateFromBody(days: Day[], profile: Profile | null): BodyEstimate {
+  if (!profile) return { available: false, reason: "About you hasn't been filled in, in Settings." };
+
   const latest = [...computeTrend(days).entries()].sort(([a], [b]) => a.localeCompare(b)).at(-1);
   if (!latest) return { available: false, reason: "No weigh-ins logged yet." };
 
   const weightKg = latest[1];
-  const restingKcal = 10 * weightKg + 6.25 * USER_PROFILE.heightCm - 5 * USER_PROFILE.age + 5;
+  const sexAdjustment = profile.sex === "male" ? 5 : -161;
+  const restingKcal = 10 * weightKg + 6.25 * profile.heightCm - 5 * profile.age + sexAdjustment;
+  const { low, high } = ACTIVITY_LEVELS[profile.activity];
   return {
     available: true,
     weightKgUsed: weightKg,
     restingKcal: Math.round(restingKcal),
-    lowKcal: roundTo50(restingKcal * ACTIVITY_LOW),
-    highKcal: roundTo50(restingKcal * ACTIVITY_HIGH),
+    lowKcal: roundTo50(restingKcal * low),
+    highKcal: roundTo50(restingKcal * high),
   };
 }

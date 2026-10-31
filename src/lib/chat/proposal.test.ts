@@ -107,7 +107,7 @@ describe("lookup items", () => {
 
 describe("past restaurant meals with a weight", () => {
   const grillHouse = lookup({
-    ref: "history:grillHouse",
+    ref: "history:Grill House",
     name: "Mandi chicken (Grill House), meat only",
     source: "history",
     per100g: { kcal: 165, protein: 25, carbs: null, fat: null },

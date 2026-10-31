@@ -230,7 +230,7 @@ describe("search_food", () => {
       entry({ food: "Grill House chicken", grams: 400, rawOrCooked: null, kcal: 660, protein: 100, estimate: true }),
       entry({ food: "Plain rice", grams: 200, rawOrCooked: "cooked", kcal: 260, protein: 5 }),
     ]);
-    const grillHouse = await searchFood("grillHouse", noUsda);
+    const grillHouse = await searchFood("Grill House", noUsda);
     expect(grillHouse.results[0].per_portion?.kcal).toBe(660);
     const rice = await searchFood("plain rice", noUsda);
     expect(rice.results[0].per_portion).toBeNull();
@@ -393,10 +393,10 @@ describe("context", () => {
     const context = await buildTurnContext(dayKey(), new Date());
     expect(context).toContain("Edited Chicken breast: 200 g → 300 g");
     expect(context).toMatch(/^- Removed Potatoes$/m);
-    expect(context).not.toContain("Removed Potatoes (he then tapped Undo)");
+    expect(context).not.toContain("Removed Potatoes (they then tapped Undo)");
 
     await undoChange(removed?.id ?? "");
-    expect(await buildTurnContext(dayKey(), new Date())).toContain("Removed Potatoes (he then tapped Undo)");
+    expect(await buildTurnContext(dayKey(), new Date())).toContain("Removed Potatoes (they then tapped Undo)");
   });
 
   it("marks a partial total", async () => {

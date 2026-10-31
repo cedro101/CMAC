@@ -2,7 +2,11 @@
 
 A chat-first macro and calorie tracker, built as an installable phone web app. You tell it what you ate in plain language, and it looks up real nutrition data and shows a card to confirm. There's no manual food searching.
 
-I built it for my own daily use, because I wanted to log food without searching through a database. I designed the product and directed the build using [Claude Code](https://claude.com/claude-code), an AI coding tool, which wrote most of the code. I tested each stage on my iPhone with my own data.
+## Why I built it
+
+Most calorie trackers make you search for every item and log it by hand, one at a time. I wanted to just tell an AI what I ate and have it handle the rest. It was also a project I wanted to build for fun, and I now use it every day.
+
+I designed the product and directed the build using [Claude Code](https://claude.com/claude-code), an AI coding tool, which wrote most of the code. I tested each stage on my iPhone with my own data.
 
 ## What it does
 

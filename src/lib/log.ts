@@ -1,6 +1,7 @@
 import { dayKey } from "./dates";
 import {
   db,
+  type Batch,
   type ChangeRecord,
   type CustomFood,
   type Day,
@@ -8,6 +9,8 @@ import {
   type Macros,
   type Meal,
   type ProposalItem,
+  type SavedMeal,
+  type SavedMealItem,
 } from "./db";
 import { applyFoodEdit } from "./macros";
 
@@ -263,12 +266,57 @@ export async function deleteMeal(id: string): Promise<void> {
   });
 }
 
+// Saves a meal template, replacing any meal with the same name.
+export async function saveMeal(name: string, items: SavedMealItem[]): Promise<SavedMeal> {
+  return db.transaction("rw", db.meals, db.changes, async () => {
+    const before = (await db.meals.where("name").equalsIgnoreCase(name).first()) ?? null;
+    const after: SavedMeal = { id: before?.id ?? crypto.randomUUID(), name, items };
+    await db.meals.put(after);
+    await recordChange({ label: `Saved meal: ${name}`, table: "meals", key: after.id, before, after });
+    return after;
+  });
+}
+
+export async function saveBatch(batch: Batch): Promise<void> {
+  await db.transaction("rw", db.batches, db.changes, async () => {
+    await db.batches.add(batch);
+    await recordChange({ label: `Started batch: ${batch.name}`, table: "batches", key: batch.id, before: null, after: batch });
+  });
+}
+
+export async function deleteBatch(id: string): Promise<void> {
+  await db.transaction("rw", db.batches, db.changes, async () => {
+    const before = await db.batches.get(id);
+    if (!before) return;
+    await db.batches.delete(id);
+    await recordChange({ label: `Removed batch: ${before.name}`, table: "batches", key: id, before, after: null });
+  });
+}
+
+// Saves a label as a food. A second tap, or a replaced card, saves nothing.
+export async function confirmFoodCard(id: string): Promise<boolean> {
+  return db.transaction("rw", db.foodCards, db.customFoods, db.changes, async () => {
+    const card = await db.foodCards.get(id);
+    if (card?.status !== "pending") return false;
+    await saveCustomFood(card.name, card.per100g, card.servingG);
+    await db.foodCards.update(id, { status: "saved" });
+    return true;
+  });
+}
+
+export async function cancelFoodCard(id: string): Promise<void> {
+  await db.transaction("rw", db.foodCards, async () => {
+    const card = await db.foodCards.get(id);
+    if (card?.status === "pending") await db.foodCards.update(id, { status: "cancelled" });
+  });
+}
+
 // Puts things back as they were. Refused if the record has changed again since,
 // so an older Undo can't wipe out a newer change.
 export async function undoChange(id: string): Promise<boolean> {
   return db.transaction(
     "rw",
-    [db.changes, db.entries, db.days, db.settings, db.customFoods, db.meals],
+    [db.changes, db.entries, db.days, db.settings, db.customFoods, db.meals, db.batches],
     async () => {
       const change = await db.changes.get(id);
       if (!change || change.undone) return false;

@@ -1,5 +1,6 @@
 import { shiftDate } from "../dates";
 import { db, type Entry, type Macros, type Proposal } from "../db";
+import { isBatchActive } from "../food/batch";
 import { GOALS_KEY } from "../log";
 import { MACRO_KEYS, sumMacros } from "../macros";
 
@@ -55,6 +56,11 @@ export async function buildTurnContext(day: string, now: Date): Promise<string> 
     .filter((proposal) => proposal.status === "pending")
     .toArray();
   const changes = await db.changes.where("day").equals(day).sortBy("createdAt");
+  const labelCards = await db.foodCards
+    .where("day")
+    .equals(day)
+    .filter((card) => card.status === "pending")
+    .toArray();
 
   return [
     `Current time: ${now.toLocaleString("en-CA", { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}`,
@@ -63,6 +69,9 @@ export async function buildTurnContext(day: string, now: Date): Promise<string> 
     entries.length ? `Today's saved entries:\n${entries.map(formatEntry).join("\n")}` : "Today's saved entries: none",
     `Today's totals: ${formatTotals(entries)}`,
     pending.length ? `Cards awaiting confirmation:\n${pending.map(formatCard).join("\n")}` : "Cards awaiting confirmation: none",
+    ...(labelCards.length
+      ? [`Label cards awaiting confirmation:\n${labelCards.map((card) => `- card_id=${card.id} | ${card.name} | per 100 g: ${formatMacros(card.per100g)}`).join("\n")}`]
+      : []),
     // He can also change things by tapping, which Claude wouldn't otherwise see.
     changes.length
       ? `Changes made today, oldest first, whether by you or by him tapping in the app:\n${changes.map((change) => `- ${change.label}${change.undone ? " (he then tapped Undo)" : ""}`).join("\n")}`
@@ -78,6 +87,8 @@ export async function buildBackground(day: string): Promise<string> {
   const recentDays = await db.days.where("date").between(start, day, true, false).toArray();
   const foods = await db.customFoods.orderBy("name").toArray();
   const meals = await db.meals.orderBy("name").toArray();
+  const now = Date.now();
+  const batches = (await db.batches.toArray()).filter((batch) => isBatchActive(batch, now));
 
   const history: string[] = [];
   for (let offset = BACKGROUND_DAYS; offset >= 1; offset--) {
@@ -105,6 +116,9 @@ export async function buildBackground(day: string): Promise<string> {
     meals.length
       ? `Saved meals:\n${meals.map((meal) => `- ${meal.name}: ${meal.items.map((item) => item.food).join("; ")}`).join("\n")}`
       : "Saved meals: none",
+    batches.length
+      ? `Active batches:\n${batches.map((batch) => `- ref=batch:${batch.id} | ${batch.name} | ${batch.rawG} g raw became ${batch.cookedG} g cooked`).join("\n")}`
+      : "Active batches: none",
   ].join("\n");
 }
 

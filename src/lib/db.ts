@@ -4,7 +4,7 @@ export type Meal = "breakfast" | "lunch" | "dinner" | "snack";
 export type RawOrCooked = "raw" | "cooked";
 
 // "user" is a number you gave directly, such as from a package.
-export type FoodSource = "saved" | "history" | "usda" | "estimate" | "user" | "imported";
+export type FoodSource = "saved" | "history" | "usda" | "estimate" | "user" | "imported" | "batch";
 
 export type Macros = {
   kcal: number | null;
@@ -116,7 +116,7 @@ export type FoodPortion = {
 export type FoodLookup = {
   ref: string;
   name: string;
-  source: "saved" | "history" | "usda";
+  source: "saved" | "history" | "usda" | "batch";
   per100g: Macros | null;
   perPortion: Macros | null;
   rawOrCooked: RawOrCooked | null;
@@ -126,13 +126,25 @@ export type FoodLookup = {
   createdAt: number;
 };
 
+// A nutrition label read from a photo, waiting to be confirmed as a saved food.
+export type FoodCard = {
+  id: string;
+  day: string;
+  createdAt: number;
+  status: "pending" | "saved" | "cancelled" | "replaced";
+  name: string;
+  servingG: number | null;
+  perServing: Macros | null;
+  per100g: Macros;
+};
+
 // One reversible change, shown in the chat with an Undo button.
 export type ChangeRecord = {
   id: string;
   day: string;
   createdAt: number;
   label: string;
-  table: "entries" | "days" | "settings" | "customFoods" | "meals";
+  table: "entries" | "days" | "settings" | "customFoods" | "meals" | "batches";
   key: string;
   before: unknown;
   after: unknown;
@@ -150,6 +162,7 @@ class CmacDatabase extends Dexie {
   proposals!: Table<Proposal, string>;
   foodLookups!: Table<FoodLookup, string>;
   changes!: Table<ChangeRecord, string>;
+  foodCards!: Table<FoodCard, string>;
 
   constructor() {
     super("cmac");
@@ -169,6 +182,9 @@ class CmacDatabase extends Dexie {
       proposals: "id, day, status, createdAt",
       foodLookups: "ref",
       changes: "id, day, createdAt",
+    });
+    this.version(3).stores({
+      foodCards: "id, day, status, createdAt",
     });
   }
 }

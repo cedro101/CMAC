@@ -1,17 +1,22 @@
 import type { z } from "zod";
 import { dayKey } from "../dates";
-import { db, type Entry, type FoodLookup, type Proposal, type ProposalItem } from "../db";
+import { db, type Batch, type Entry, type FoodLookup, type Proposal, type ProposalItem } from "../db";
+import { batchLookup, buildBatch, isBatchActive, per100gCooked } from "../food/batch";
 import { entryLookup, searchFood, type UsdaSearcher } from "../food/search";
 import {
   deleteEntry,
   editEntry,
   logWeight,
   markDayIncomplete,
+  saveBatch,
   saveCustomFood,
+  saveMeal,
   setGoals,
 } from "../log";
 import { sumMacros } from "../macros";
-import { resolveItem } from "./proposal";
+import { estimateFromBody, estimateFromHistory, USER_PROFILE } from "../maintenance";
+import { resolveLabelFood } from "./labelFood";
+import { resolveItem, type ProposedItemInput } from "./proposal";
 import { TOOLS, type ToolName } from "./toolDefs";
 
 export type ToolResult = { content: string; isError: boolean };
@@ -39,6 +44,10 @@ function describeEntry(entry: Entry) {
 
 async function getLookup(ref: string | null | undefined): Promise<FoodLookup | null> {
   if (!ref) return null;
+  if (ref.startsWith("batch:")) {
+    const batch = await db.batches.get(ref.slice("batch:".length));
+    return batch && isBatchActive(batch, Date.now()) ? batchLookup(batch) : null;
+  }
   if (ref.startsWith("entry:")) {
     const entry = await db.entries.get(ref.slice("entry:".length));
     return entry ? entryLookup(entry) : null;
@@ -47,13 +56,7 @@ async function getLookup(ref: string | null | undefined): Promise<FoodLookup | n
 }
 
 async function proposeLog(input: ToolInput<"propose_log">, day: string): Promise<ToolResult> {
-  const items: ProposalItem[] = [];
-  const errors: string[] = [];
-  for (const itemInput of input.items) {
-    const result = resolveItem(itemInput, await getLookup(itemInput.ref));
-    if (result.ok) items.push(result.item);
-    else errors.push(result.error);
-  }
+  const { items, errors } = await resolveItems(input.items);
   if (errors.length > 0) {
     return { content: `No card was shown. Fix these and try again:\n${errors.join("\n")}`, isError: true };
   }
@@ -147,6 +150,119 @@ async function runEditEntry({ id, changes }: ToolInput<"edit_entry">): Promise<T
   return { content: JSON.stringify({ edited: describeEntry(edited) }), isError: false };
 }
 
+async function resolveItems(inputs: ProposedItemInput[]): Promise<{ items: ProposalItem[]; errors: string[] }> {
+  const items: ProposalItem[] = [];
+  const errors: string[] = [];
+  for (const input of inputs) {
+    const result = resolveItem(input, await getLookup(input.ref));
+    if (result.ok) items.push(result.item);
+    else errors.push(result.error);
+  }
+  return { items, errors };
+}
+
+async function proposeLabelFood(input: ToolInput<"propose_label_food">, day: string): Promise<ToolResult> {
+  const resolved = resolveLabelFood(input);
+  if (!resolved.ok) return { content: resolved.error, isError: true };
+
+  const id = crypto.randomUUID();
+  await db.transaction("rw", db.foodCards, async () => {
+    if (input.replaces_card_id) {
+      const old = await db.foodCards.get(input.replaces_card_id);
+      if (old?.status === "pending") await db.foodCards.update(old.id, { status: "replaced" });
+    }
+    await db.foodCards.add({ id, day, createdAt: Date.now(), status: "pending", ...resolved.food });
+  });
+  return {
+    content: JSON.stringify({ card_id: id, status: "shown to him, not saved until he taps Save", ...resolved.food }),
+    isError: false,
+  };
+}
+
+async function runSaveMeal({ name, items: inputs }: ToolInput<"save_meal">): Promise<ToolResult> {
+  const { items, errors } = await resolveItems(inputs);
+  if (errors.length > 0) {
+    return { content: `The meal wasn't saved. Fix these and try again:\n${errors.join("\n")}`, isError: true };
+  }
+  const meal = await saveMeal(
+    name,
+    items.map(({ food, grams, rawOrCooked, kcal, protein, carbs, fat }) => ({ food, grams, rawOrCooked, kcal, protein, carbs, fat })),
+  );
+  return { content: JSON.stringify({ saved: meal.name, items: meal.items, totals: sumMacros(meal.items) }), isError: false };
+}
+
+async function showSavedMeal({ name, meal, date }: ToolInput<"use_saved_meal">, day: string): Promise<ToolResult> {
+  const saved = await db.meals.where("name").equalsIgnoreCase(name).first();
+  if (!saved) return { content: `No saved meal called "${name}".`, isError: true };
+
+  const card: Proposal = {
+    id: crypto.randomUUID(),
+    day,
+    createdAt: Date.now(),
+    status: "pending",
+    date: date ?? day,
+    meal: meal ?? null,
+    items: saved.items.map((item) => ({ ...item, id: crypto.randomUUID(), portion: null, source: "saved", estimate: false })),
+  };
+  await db.proposals.add(card);
+  return {
+    content: JSON.stringify({ card_id: card.id, status: "shown to him, not saved until he taps Confirm", totals: sumMacros(card.items) }),
+    isError: false,
+  };
+}
+
+async function createBatch({ name, raw_g: rawG, cooked_g: cookedG, ref }: ToolInput<"create_batch">): Promise<ToolResult> {
+  const lookup = await getLookup(ref);
+  if (!lookup) return { content: `Unknown ref "${ref}". Call search_food first.`, isError: true };
+  const result = buildBatch({ name, rawG, cookedG }, lookup, Date.now());
+  if (!result.ok) return { content: result.error, isError: true };
+  await saveBatch(result.batch);
+  return {
+    content: JSON.stringify({
+      ref: `batch:${result.batch.id}`,
+      name,
+      per_100g_cooked: roundedPer100g(result.batch),
+      expires: new Date(result.batch.expiresAt as number).toDateString(),
+    }),
+    isError: false,
+  };
+}
+
+function roundedPer100g(batch: Batch) {
+  const values = per100gCooked(batch);
+  const round = (value: number | null) => (value === null ? null : Math.round(value * 10) / 10);
+  return { kcal: round(values.kcal), protein: round(values.protein), carbs: round(values.carbs), fat: round(values.fat) };
+}
+
+async function listBatches(): Promise<ToolResult> {
+  const batches = (await db.batches.toArray()).filter((batch) => isBatchActive(batch, Date.now()));
+  return {
+    content: JSON.stringify({
+      batches: batches.map((batch) => ({
+        ref: `batch:${batch.id}`,
+        name: batch.name,
+        raw_g: batch.rawG,
+        cooked_g: batch.cookedG,
+        per_100g_cooked: roundedPer100g(batch),
+        expires: new Date(batch.expiresAt as number).toDateString(),
+      })),
+    }),
+    isError: false,
+  };
+}
+
+async function estimateMaintenance(day: string): Promise<ToolResult> {
+  const [entries, days] = await Promise.all([db.entries.toArray(), db.days.toArray()]);
+  return {
+    content: JSON.stringify({
+      from_history: estimateFromHistory(entries, days, day),
+      from_body: estimateFromBody(days),
+      profile: USER_PROFILE,
+    }),
+    isError: false,
+  };
+}
+
 async function runTool(
   name: ToolName,
   input: ToolInput<ToolName>,
@@ -197,6 +313,18 @@ async function runTool(
       const saved = await saveCustomFood(foodName, per100g, servingG ?? null);
       return ok({ saved: saved.name });
     }
+    case "propose_label_food":
+      return proposeLabelFood(input as ToolInput<"propose_label_food">, day);
+    case "save_meal":
+      return runSaveMeal(input as ToolInput<"save_meal">);
+    case "use_saved_meal":
+      return showSavedMeal(input as ToolInput<"use_saved_meal">, day);
+    case "create_batch":
+      return createBatch(input as ToolInput<"create_batch">);
+    case "list_batches":
+      return listBatches();
+    case "estimate_maintenance":
+      return estimateMaintenance(day);
   }
 }
 

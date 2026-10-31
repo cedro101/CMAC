@@ -1,9 +1,11 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { dayKey, formatDayLabel, shiftDate } from "@/lib/dates";
 import { db } from "@/lib/db";
+import { getSelectedDay, setSelectedDay, subscribeToSelectedDay } from "@/lib/selectedDay";
+import BackupReminder from "./BackupReminder";
 import ChatPopup from "./ChatPopup";
 import FoodList from "./FoodList";
 import MacroSummary from "./MacroSummary";
@@ -11,7 +13,7 @@ import QuickActions from "./QuickActions";
 
 export default function TodayScreen() {
   const [today, setToday] = useState(() => dayKey());
-  const [selected, setSelected] = useState<string | null>(null);
+  const selected = useSyncExternalStore(subscribeToSelectedDay, getSelectedDay, () => null);
   const [chatOpen, setChatOpen] = useState(false);
   const shown = selected ?? today;
   const isToday = selected === null;
@@ -29,15 +31,16 @@ export default function TodayScreen() {
 
   function goToNextDay() {
     const next = shiftDate(shown, 1);
-    setSelected(next >= today ? null : next);
+    setSelectedDay(next >= today ? null : next);
   }
 
   return (
     <div className="pb-20">
+      <BackupReminder />
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <button
           type="button"
-          onClick={() => setSelected(shiftDate(shown, -1))}
+          onClick={() => setSelectedDay(shiftDate(shown, -1))}
           aria-label="Previous day"
           className="size-10 text-xl text-muted"
         >

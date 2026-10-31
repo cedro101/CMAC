@@ -132,7 +132,7 @@ export type ChangeRecord = {
   day: string;
   createdAt: number;
   label: string;
-  table: "entries" | "days" | "settings" | "customFoods";
+  table: "entries" | "days" | "settings" | "customFoods" | "meals";
   key: string;
   before: unknown;
   after: unknown;

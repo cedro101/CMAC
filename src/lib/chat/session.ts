@@ -1,5 +1,6 @@
 import { db, type ChatMessage } from "../db";
 import type { UsdaFood } from "../food/usdaParse";
+import { MODEL_KEY } from "../log";
 import { apiFetch } from "../passcode";
 import { buildBackground, buildTurnContext, wrapAppContext } from "./context";
 import { repairInterruptedTools, runToolLoop, type LoopOutcome, type StoredMessage } from "./loop";
@@ -44,7 +45,7 @@ async function sendTurn(messages: StoredMessage[], handlers: ChatHandlers): Prom
     response = await apiFetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, model: (await db.settings.get(MODEL_KEY))?.value }),
     });
   } catch {
     throw new ChatError("Couldn't reach the server. Check your connection and try again.");

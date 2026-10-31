@@ -12,6 +12,8 @@ import {
 import { applyFoodEdit } from "./macros";
 
 export const GOALS_KEY = "goals";
+export const MODEL_KEY = "model";
+export const LAST_BACKUP_KEY = "lastBackupAt";
 
 async function recordChange(
   change: Pick<ChangeRecord, "label" | "table" | "key" | "before" | "after">,
@@ -223,12 +225,50 @@ export async function saveCustomFood(
   });
 }
 
+export async function renameCustomFood(id: string, name: string): Promise<void> {
+  await db.transaction("rw", db.customFoods, db.changes, async () => {
+    const before = await db.customFoods.get(id);
+    if (!before || before.name === name) return;
+    const after: CustomFood = { ...before, name };
+    await db.customFoods.put(after);
+    await recordChange({ label: `Renamed food: ${name}`, table: "customFoods", key: id, before, after });
+  });
+}
+
+export async function deleteCustomFood(id: string): Promise<void> {
+  await db.transaction("rw", db.customFoods, db.changes, async () => {
+    const before = await db.customFoods.get(id);
+    if (!before) return;
+    await db.customFoods.delete(id);
+    await recordChange({ label: `Removed saved food: ${before.name}`, table: "customFoods", key: id, before, after: null });
+  });
+}
+
+export async function renameMeal(id: string, name: string): Promise<void> {
+  await db.transaction("rw", db.meals, db.changes, async () => {
+    const before = await db.meals.get(id);
+    if (!before || before.name === name) return;
+    const after = { ...before, name };
+    await db.meals.put(after);
+    await recordChange({ label: `Renamed meal: ${name}`, table: "meals", key: id, before, after });
+  });
+}
+
+export async function deleteMeal(id: string): Promise<void> {
+  await db.transaction("rw", db.meals, db.changes, async () => {
+    const before = await db.meals.get(id);
+    if (!before) return;
+    await db.meals.delete(id);
+    await recordChange({ label: `Removed saved meal: ${before.name}`, table: "meals", key: id, before, after: null });
+  });
+}
+
 // Puts things back as they were. Refused if the record has changed again since,
 // so an older Undo can't wipe out a newer change.
 export async function undoChange(id: string): Promise<boolean> {
   return db.transaction(
     "rw",
-    [db.changes, db.entries, db.days, db.settings, db.customFoods],
+    [db.changes, db.entries, db.days, db.settings, db.customFoods, db.meals],
     async () => {
       const change = await db.changes.get(id);
       if (!change || change.undone) return false;

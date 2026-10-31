@@ -13,6 +13,11 @@ const RequestBody = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.unknown() }))
     .min(1)
     .max(1000),
+  // Chosen in Settings. Only Claude model names are accepted.
+  model: z
+    .string()
+    .regex(/^claude-[a-z0-9.-]+$/)
+    .optional(),
 });
 
 function classifyError(error: unknown): { kind: ChatErrorKind; message: string } {
@@ -55,7 +60,7 @@ export async function POST(request: Request) {
         for (let attempt = 0; ; attempt++) {
           const stream = client.beta.messages.stream(
             {
-              model: CLAUDE_MODEL,
+              model: body.data.model ?? CLAUDE_MODEL,
               max_tokens: CLAUDE_MAX_TOKENS,
               system: [{ type: "text", text: SYSTEM_PROMPT }],
               tools: buildToolDefinitions(),

@@ -36,6 +36,16 @@ export function isValidDateKey(key: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(key) && formatDate(parseDate(key)) === key;
 }
 
+// The Monday that starts the week a date falls in.
+export function weekStart(key: string): string {
+  const daysSinceMonday = (parseDate(key).getDay() + 6) % 7;
+  return shiftDate(key, -daysSinceMonday);
+}
+
+export function formatShortDate(key: string): string {
+  return parseDate(key).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
+
 export function formatDayLabel(key: string): string {
   return parseDate(key).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
 }

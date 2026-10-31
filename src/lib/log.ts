@@ -6,6 +6,7 @@ import {
   type Day,
   type Entry,
   type Macros,
+  type Meal,
   type ProposalItem,
 } from "./db";
 import { applyFoodEdit } from "./macros";
@@ -54,6 +55,36 @@ export async function confirmProposal(id: string): Promise<boolean> {
     await db.proposals.update(id, { status: "confirmed", items });
     return true;
   });
+}
+
+// Creates a card directly, for quick add and copying a meal. Nothing is saved
+// as an entry until it's confirmed.
+export async function createProposal(
+  date: string,
+  meal: Meal | null,
+  items: ProposalItem[],
+): Promise<string> {
+  const id = crypto.randomUUID();
+  await db.proposals.add({
+    id,
+    day: dayKey(),
+    createdAt: Date.now(),
+    status: "pending",
+    date,
+    meal,
+    items,
+  });
+  return id;
+}
+
+// Removes everything still saved from a confirmed card. Each removal gets its
+// own Undo in the chat, so this can be reversed too.
+export async function undoProposal(id: string): Promise<void> {
+  const proposal = await db.proposals.get(id);
+  if (proposal?.status !== "confirmed") return;
+  for (const item of proposal.items) {
+    if (item.entryId) await deleteEntry(item.entryId);
+  }
 }
 
 export async function cancelProposal(id: string): Promise<void> {

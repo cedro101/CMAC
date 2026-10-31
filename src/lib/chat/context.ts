@@ -1,3 +1,4 @@
+import { shiftDate } from "../dates";
 import { db, type Entry, type Macros, type Proposal } from "../db";
 import { GOALS_KEY } from "../log";
 import { MACRO_KEYS, sumMacros } from "../macros";
@@ -31,16 +32,6 @@ function formatTotals(entries: Entry[]): string {
   return MACRO_KEYS.map(
     (key) => `${key} ${totals[key].value}${totals[key].partial ? " (partial)" : ""}`,
   ).join(", ");
-}
-
-function shiftDate(date: string, days: number): string {
-  const [year, month, day] = date.split("-").map(Number);
-  const shifted = new Date(year, month - 1, day + days);
-  return [
-    shifted.getFullYear(),
-    String(shifted.getMonth() + 1).padStart(2, "0"),
-    String(shifted.getDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 function formatCard(card: Proposal): string {

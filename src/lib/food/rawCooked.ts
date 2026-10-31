@@ -24,6 +24,13 @@ export function inferRawOrCooked(name: string): RawOrCooked | null {
   return null;
 }
 
+// For imported history, only names that say "raw weight" or "cooked" count.
+export function inferImportedState(name: string): RawOrCooked | null {
+  if (/\braw\b/i.test(name)) return "raw";
+  if (/\bcooked\b/i.test(name)) return "cooked";
+  return null;
+}
+
 // Works out the state of a USDA record, such as "French fries, frozen,
 // unprepared". Cooked words win because USDA writes "Apples, raw, cooked, boiled".
 export function inferUsdaState(name: string): RawOrCooked | null {

@@ -10,7 +10,32 @@ export function dayKey(moment: Date = new Date()): string {
     moment.getHours() - DAY_ROLLOVER_HOUR,
     moment.getMinutes(),
   );
-  const month = String(shifted.getMonth() + 1).padStart(2, "0");
-  const day = String(shifted.getDate()).padStart(2, "0");
-  return `${shifted.getFullYear()}-${month}-${day}`;
+  return formatDate(shifted);
+}
+
+function formatDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function parseDate(key: string): Date {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// Moves a YYYY-MM-DD key by a number of days.
+export function shiftDate(key: string, days: number): string {
+  const date = parseDate(key);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+}
+
+// True only for a real calendar date, so "2026-02-31" is rejected.
+export function isValidDateKey(key: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(key) && formatDate(parseDate(key)) === key;
+}
+
+export function formatDayLabel(key: string): string {
+  return parseDate(key).toLocaleDateString("en-CA", { weekday: "short", month: "short", day: "numeric" });
 }

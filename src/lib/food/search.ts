@@ -23,11 +23,11 @@ function matches(queryWords: string[], name: string): boolean {
   return queryWords.length > 0 && queryWords.every((word) => nameWords.has(word));
 }
 
-function hasMacros(macros: Macros): boolean {
+export function hasMacros(macros: Macros): boolean {
   return macros.kcal !== null || macros.protein !== null || macros.carbs !== null || macros.fat !== null;
 }
 
-function historyLookup(entry: Entry): FoodLookup {
+export function historyLookup(entry: Entry): FoodLookup {
   const weighed = entry.grams !== null && entry.grams > 0;
   return {
     ref: `history:${tokenize(entry.food).join("-")}|${entry.rawOrCooked ?? ""}`,

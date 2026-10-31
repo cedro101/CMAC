@@ -4,7 +4,7 @@ import { requirePasscode } from "@/lib/auth";
 import { SYSTEM_PROMPT } from "@/lib/chat/prompt";
 import { buildToolDefinitions } from "@/lib/chat/toolDefs";
 import type { ChatErrorKind, ChatStreamEvent } from "@/lib/chat/streamEvents";
-import { CLAUDE_EFFORT, CLAUDE_MAX_TOKENS, CLAUDE_MODEL } from "@/lib/config";
+import { CLAUDE_EFFORT, CLAUDE_MAX_TOKENS, CLAUDE_MODEL, MAX_WEB_SEARCHES } from "@/lib/config";
 
 const MAX_PARSE_RETRIES = 2;
 
@@ -63,7 +63,10 @@ export async function POST(request: Request) {
               model: body.data.model ?? CLAUDE_MODEL,
               max_tokens: CLAUDE_MAX_TOKENS,
               system: [{ type: "text", text: SYSTEM_PROMPT }],
-              tools: buildToolDefinitions(),
+              tools: [
+                ...buildToolDefinitions(),
+                { type: "web_search_20260209", name: "web_search", max_uses: MAX_WEB_SEARCHES },
+              ] as Anthropic.Beta.BetaToolUnion[],
               messages: body.data.messages as Anthropic.Beta.BetaMessageParam[],
               cache_control: { type: "ephemeral" },
               output_config: { effort: CLAUDE_EFFORT },

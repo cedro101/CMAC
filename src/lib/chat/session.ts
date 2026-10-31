@@ -1,5 +1,6 @@
 import { db, type ChatMessage } from "../db";
 import type { UsdaFood } from "../food/usdaParse";
+import type { LabelPhoto } from "../image";
 import { MODEL_KEY } from "../log";
 import { apiFetch } from "../passcode";
 import { buildBackground, buildTurnContext, wrapAppContext } from "./context";
@@ -111,6 +112,7 @@ export async function sendUserMessage(
   day: string,
   text: string,
   handlers: ChatHandlers,
+  photo?: LabelPhoto,
 ): Promise<LoopOutcome> {
   const stored = await loadStoredMessages(day);
   const lastBackground = stored.findLast((message) => message.backgroundText)?.backgroundText;
@@ -122,6 +124,7 @@ export async function sendUserMessage(
     role: "user",
     content: [
       { type: "text", text: wrapAppContext(turn, includeBackground ? background : null) },
+      ...(photo ? [{ type: "image", source: { type: "base64", media_type: photo.mediaType, data: photo.data } }] : []),
       { type: "text", text },
     ],
     ...(includeBackground ? { backgroundText: background } : {}),

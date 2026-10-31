@@ -21,6 +21,7 @@ const SOURCE_LABELS: Record<FoodSource, string> = {
   estimate: "Estimate",
   user: "Your number",
   imported: "Imported",
+  batch: "Batch",
 };
 
 function formatMacro(value: number | null, unit = "g"): string {

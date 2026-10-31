@@ -9,6 +9,9 @@ export const CLAUDE_MAX_TOKENS = 16000;
 // A single message can't go back and forth with Claude more times than this.
 export const MAX_TOOL_ROUNDS = 10;
 
+// Each web search costs about 1 cent, plus the text Claude reads from it.
+export const MAX_WEB_SEARCHES = 3;
+
 // A new logging day starts at this local hour, so late-night food counts toward the previous day.
 export const DAY_ROLLOVER_HOUR = 4;
 

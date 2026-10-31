@@ -1,3 +1,4 @@
+import ActiveBatches from "@/components/settings/ActiveBatches";
 import AppSettings from "@/components/settings/AppSettings";
 import BackupSection from "@/components/settings/BackupSection";
 import GoalsForm from "@/components/settings/GoalsForm";
@@ -11,6 +12,7 @@ export default function SettingsPage() {
       <GoalsForm />
       <BackupSection />
       <HistoryImporter />
+      <ActiveBatches />
       <SavedItems />
       <AppSettings />
     </div>

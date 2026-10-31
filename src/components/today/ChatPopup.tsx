@@ -22,15 +22,12 @@ export default function ChatPopup({
   onClose: () => void;
   onBeforeSend: () => void;
 }) {
-  const waitingCards = useLiveQuery(
-    () =>
-      db.proposals
-        .where("day")
-        .equals(day)
-        .filter((proposal) => proposal.status === "pending")
-        .count(),
-    [day],
-  );
+  const waitingCards = useLiveQuery(async () => {
+    const isPending = (card: { status: string }) => card.status === "pending";
+    const logs = await db.proposals.where("day").equals(day).filter(isPending).count();
+    const labels = await db.foodCards.where("day").equals(day).filter(isPending).count();
+    return logs + labels;
+  }, [day]);
 
   return (
     <>

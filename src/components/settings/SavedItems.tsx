@@ -111,7 +111,7 @@ export default function SavedItems() {
 
       <h2 className="mt-4 font-semibold">Saved meals</h2>
       {meals?.length === 0 && (
-        <p className="mt-1 text-sm text-muted">None yet. Saving meals arrives with the next update.</p>
+        <p className="mt-1 text-sm text-muted">None yet. Tell the chat something like &quot;save that as my usual breakfast&quot;.</p>
       )}
       <div className="divide-y divide-border">
         {meals?.map((meal) => (
